@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0077FF">
+<title>Почта возвращает деньги — прототип</title>
+<style>
+:root{
+  --accent:#0077FF; --accent-d:#0059c9; --accent-t:#e9f2ff;
+  --lime:#B8FC75; --lime-d:#4f7d17; --lime-bg:#eefbdf;
+  --sky:#07E5F9; --sky-bg:#e2fbfd;
+  --pink:#FF3985;
+  --ink:#2C2D2E; --mute:#8b8d90; --mute2:#6c6e71;
+  --line:#eceef0; --line2:#e0e2e5;
+  --bg:#f3f5f7; --card:#ffffff;
+  --green:#1e8f5e; --green-bg:#e6f6ee;
+  --amber:#b06a00; --amber-bg:#fef1dc;
+  --red:#d23b3b; --red-bg:#fdeaea;
+  --r:18px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;font-family:var(--font);background:#d9dde2;color:var(--ink);}
+body{display:flex;justify-content:center;min-height:100vh;min-height:100dvh;}
+
+.frame{
+  width:390px;max-width:100vw;height:844px;max-height:100vh;
+  background:var(--bg);position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 20px 60px rgba(16,24,40,.28);
+}
+@media(min-width:440px){ .frame{margin:24px 0;border-radius:40px;border:10px solid #14161a;} }
+/* On phones: lock the frame to the real visible viewport (dvh accounts for the
+   browser address bar) and pin it so the tabbar never scrolls away */
+@media(max-width:439px){
+  html,body{height:100%;overflow:hidden;position:fixed;inset:0;width:100%;}
+  body{background:var(--bg);}
+  .frame{position:fixed;inset:0;width:100%;max-width:100%;height:100vh;height:100dvh;max-height:none;margin:0;border-radius:0;border:none;box-shadow:none;}
+}
+
+.status{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:14px;font-weight:700;color:var(--ink);}
+.status .dots{display:flex;gap:5px;align-items:center;}
+.status .bat{width:22px;height:12px;border:1.3px solid var(--ink);border-radius:3px;position:relative;}
+.status .bat::after{content:"";position:absolute;right:-3px;top:3.5px;width:2px;height:5px;background:var(--ink);border-radius:1px;}
+.status .bat i{position:absolute;left:1.5px;top:1.5px;bottom:1.5px;width:13px;background:var(--ink);border-radius:1px;}
+
+.mailbar{flex:none;background:var(--card);border-bottom:1px solid var(--line);
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+  padding:10px 16px;min-height:52px;}
+.mailbar .left{justify-self:start;min-width:0;}
+.mailbar .center{justify-self:center;font-size:13px;color:var(--mute2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+.mailbar .right{justify-self:end;}
+.mailbar .logo{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:800;color:var(--ink);}
+.mailbar .at{width:26px;height:26px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800;flex:none;}
+.mailbar .ava{width:30px;height:30px;border-radius:50%;background:var(--accent-t);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:13px;cursor:pointer;flex:none;}
+.backbtn{border:none;background:none;color:var(--accent);font-size:15px;font-weight:600;display:flex;align-items:center;gap:2px;cursor:pointer;padding:0;white-space:nowrap;}
+
+.scroll{flex:1;min-height:0;position:relative;overflow:hidden;}
+.body{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;}
+.body.active{display:block;}
+.body::-webkit-scrollbar{display:none;}
+.pad{padding:16px 18px 28px;}
+
+.byte{display:inline-flex;align-items:center;gap:8px;background:var(--accent-t);border-radius:20px;padding:5px 12px 5px 6px;margin-bottom:14px;}
+.byte .av{width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex:none;}
+.byte .av svg{width:12px;height:12px;}
+.byte b{font-size:12px;color:var(--accent-d);font-weight:700;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 4px 14px rgba(16,24,40,.05);margin-bottom:14px;}
+.h1{font-size:23px;font-weight:800;line-height:1.22;margin:0 0 6px;}
+.h2{font-size:19px;font-weight:800;line-height:1.28;margin:0 0 4px;}
+.sub{font-size:13px;color:var(--mute2);line-height:1.5;margin:0;}
+.tiny{font-size:11.5px;color:var(--mute);line-height:1.4;}
+
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);text-align:center;line-height:1.2;}
+.btn.pri{background:var(--accent);color:#fff;} .btn.pri:active{background:var(--accent-d);}
+.btn.ghost{background:#fff;color:var(--ink);border:1.4px solid var(--line2);}
+.btn.lime{background:var(--lime);color:#2c3d10;}
+.btn.sm{padding:12px;font-size:14px;}
+.btn+.btn{margin-top:10px;}
+.btnrow{display:flex;gap:10px;} .btnrow .btn{flex:1;margin-top:0;}
+
+.sumbox{background:var(--green-bg);border-radius:14px;padding:16px;margin:14px 0;}
+.sumbox .lbl{font-size:12px;font-weight:700;color:var(--green);margin-bottom:2px;}
+.sumbox .big{font-size:31px;font-weight:800;color:var(--green);line-height:1.1;}
+
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1.4px solid var(--line2);border-radius:12px;padding:13px 14px;margin-bottom:10px;font-size:14px;font-weight:500;cursor:pointer;background:#fff;}
+.opt.sel{border-color:var(--accent);background:var(--accent-t);font-weight:600;}
+.opt .rc{width:20px;height:20px;border-radius:50%;border:2px solid var(--line2);flex:none;}
+.opt.sel .rc{border-color:var(--accent);background:var(--accent);position:relative;}
+.opt.sel .rc::after{content:"";position:absolute;left:5px;top:5px;width:6px;height:6px;background:#fff;border-radius:50%;}
+
+.prog{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0;}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:3px;}
+
+.tl{margin-top:8px;}
+.tl .step{display:flex;gap:12px;position:relative;padding-bottom:20px;}
+.tl .step:last-child{padding-bottom:0;}
+.tl .dot{width:20px;height:20px;border-radius:50%;flex:none;background:var(--line2);display:flex;align-items:center;justify-content:center;z-index:1;}
+.tl .step:not(:last-child)::before{content:"";position:absolute;left:9px;top:20px;bottom:0;width:2px;background:var(--line2);}
+.tl .step.done::before{background:var(--green);}
+.tl .dot.done{background:var(--green);}
+.tl .dot.active{background:var(--accent);}
+.tl .dot svg{width:11px;height:11px;}
+.tl .dot.active i{width:7px;height:7px;background:#fff;border-radius:50%;}
+.tl .txt{min-width:0;}
+.tl .txt b{font-size:14.5px;font-weight:700;display:block;line-height:1.3;}
+.tl .txt.wait b{color:var(--mute);font-weight:500;}
+.tl .txt span{font-size:12px;color:var(--mute);line-height:1.4;display:block;}
+
+.pill{display:inline-flex;align-items:center;gap:8px;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:700;line-height:1.2;}
+.pill .d{width:8px;height:8px;border-radius:50%;flex:none;}
+.pill.amber{background:var(--amber-bg);color:var(--amber);} .pill.amber .d{background:var(--amber);}
+.pill.blue{background:var(--accent-t);color:var(--accent-d);} .pill.blue .d{background:var(--accent);}
+.pill.green{background:var(--green-bg);color:var(--green);} .pill.green .d{background:var(--green);}
+
+.line-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13.5px;}
+.line-item b{color:var(--green);font-weight:700;white-space:nowrap;}
+.line-item .k{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.inbox{background:#fff;border-bottom:1px solid var(--line);padding:14px 18px;display:flex;gap:12px;align-items:center;cursor:pointer;}
+.inbox .ic{width:34px;height:34px;border-radius:50%;background:#efe7fb;color:#6d28d9;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none;}
+.inbox .m{min-width:0;flex:1;} .inbox .m b{font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .inbox .m div{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.inbox .t{font-size:11px;color:var(--mute);align-self:flex-start;white-space:nowrap;flex:none;}
+
+.cc{border:1px solid var(--line);border-left-width:5px;border-radius:12px;padding:15px;margin-bottom:12px;background:#fff;}
+.cc .tag{font-size:11.5px;font-weight:700;border-radius:20px;padding:4px 10px;display:inline-block;margin-bottom:9px;}
+.cc .big{font-size:15px;font-weight:800;margin-bottom:4px;line-height:1.4;}
+.cc .lil{font-size:13px;color:var(--mute2);line-height:1.5;}
+.cc.ok{border-left-color:var(--green);} .cc.ok .tag{background:var(--green-bg);color:var(--green);}
+.cc.pay{border-left-color:var(--accent);} .cc.pay .tag{background:var(--accent-t);color:var(--accent-d);}
+.cc.no{border-left-color:var(--red);} .cc.no .tag{background:var(--red-bg);color:var(--red);}
+
+.hold{background:var(--sky-bg);border-radius:12px;padding:14px;margin:14px 0;}
+.hold b{font-size:13.5px;display:block;margin-bottom:3px;color:#0a7c8a;}
+.hold span{font-size:12.5px;color:#0a7c8a;line-height:1.5;}
+
+.onb{position:absolute;inset:0;background:var(--accent);display:none;flex-direction:column;padding:44px 30px 30px;color:#fff;z-index:40;}
+.onb.active{display:flex;}
+.onb .mark{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;margin:36px auto 28px;}
+.onb .mark .in{width:64px;height:64px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;}
+.onb h1{font-size:26px;font-weight:800;line-height:1.25;margin:0 0 14px;}
+.onb p{font-size:15px;line-height:1.55;color:#dce9ff;margin:0 0 22px;}
+.onb .hook{background:rgba(255,255,255,.15);border-radius:14px;padding:14px 16px;margin-bottom:auto;}
+.onb .hook b{display:block;font-size:14px;} .onb .hook span{font-size:13px;color:#dce9ff;}
+.onb .foot{font-size:12px;color:#bcd5ff;text-align:center;margin-top:16px;}
+
+.modal-wrap{position:absolute;inset:0;background:rgba(20,22,26,.45);display:none;align-items:flex-end;z-index:50;}
+.modal-wrap.active{display:flex;}
+.modal{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:22px 20px 26px;max-height:80%;overflow-y:auto;}
+.modal .grab{width:40px;height:4px;background:var(--line2);border-radius:2px;margin:0 auto 16px;}
+
+.tabbar{flex:none;height:64px;background:var(--card);border-top:1px solid var(--line);display:flex;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--mute);font-family:var(--font);padding:0;position:relative;}
+.tab svg{width:22px;height:22px;}
+.tab span.lb{font-size:10.5px;font-weight:500;}
+.tab.on{color:var(--accent);} .tab.on span.lb{font-weight:700;}
+.tab .badge{position:absolute;top:8px;left:50%;margin-left:6px;background:var(--pink);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 5px;}
+
+.ret-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;display:flex;gap:12px;align-items:center;cursor:pointer;}
+.ret-item .ri{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none;}
+.ret-item .ri svg{width:20px;height:20px;}
+.ret-item .rm{flex:1;min-width:0;} .ret-item .rm b{font-size:14.5px;display:block;} .ret-item .rm span{font-size:12px;color:var(--mute);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ret-item .amt{font-weight:800;color:var(--green);font-size:15px;white-space:nowrap;flex:none;}
+.chev{color:var(--mute);flex:none;}
+
+.empty{text-align:center;color:var(--mute);padding:40px 20px;font-size:14px;line-height:1.5;}
+.section-h{font-size:12.5px;font-weight:700;color:var(--mute);margin:4px 0 8px;}
+.disc{font-size:11.5px;color:var(--mute);text-align:center;margin-top:10px;}
+
+/* verified provider badge (Ф4) */
+.vbadge{display:inline-flex;align-items:center;gap:5px;background:var(--lime-bg);color:var(--lime-d);border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;line-height:1.2;}
+.vbadge svg{width:12px;height:12px;}
+
+/* subscription / claim row (Ф3) */
+.sub-row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px;}
+.sub-row .si{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;font-weight:700;font-size:13px;}
+.sub-row .sm{flex:1;min-width:0;} .sub-row .sm b{font-size:14px;display:block;} .sub-row .sm span{font-size:12px;color:var(--mute);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sub-row .price{font-weight:700;font-size:13.5px;white-space:nowrap;flex:none;color:var(--ink);}
+.mini-btn{border:1.4px solid var(--line2);background:#fff;border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;color:var(--ink);flex:none;}
+.mini-btn.red{border-color:var(--red);color:var(--red);}
+.mini-btn.blue{border-color:var(--accent);color:var(--accent);}
+.seg{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+.seg::-webkit-scrollbar{display:none;}
+.seg button{border:1.4px solid var(--line2);background:#fff;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;color:var(--mute2);flex:none;}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+.set-group{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px;}
+.set-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);}
+.set-row:last-child{border-bottom:none;}
+.set-row .st{flex:1;min-width:0;}
+.set-row .st b{font-size:14px;display:block;font-weight:600;line-height:1.3;}
+.set-row .st span{font-size:12px;color:var(--mute);display:block;line-height:1.4;margin-top:2px;}
+.sw{width:44px;height:26px;border-radius:13px;background:var(--line2);position:relative;flex:none;cursor:pointer;transition:background .2s;}
+.sw.on{background:var(--accent);}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.sw.on::after{transform:translateX(18px);}
+.prof-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+.prof-head .pa{width:56px;height:56px;border-radius:50%;background:var(--accent-t);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:22px;flex:none;}
+.prof-head b{font-size:18px;font-weight:800;display:block;}
+.prof-head span{font-size:13px;color:var(--mute);}
+.danger-link{color:var(--red);font-weight:600;font-size:14px;background:none;border:none;cursor:pointer;padding:14px 16px;width:100%;text-align:left;font-family:var(--font);}
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="status">
+    <span>9:41</span>
+    <div class="dots">
+      <svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="#2C2D2E"/><rect x="4.5" y="4" width="3" height="8" rx="1" fill="#2C2D2E"/><rect x="9" y="2" width="3" height="10" rx="1" fill="#2C2D2E"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#2C2D2E"/></svg>
+      <span class="bat"><i></i></span>
+    </div>
+  </div>
+
+  <div class="mailbar" id="mailbar"></div>
+
+  <div class="scroll">
+
+    <div class="body active" data-view="returns"><div class="pad">
+      <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Байт · агент Почты</b></div>
+      <h1 class="h1">Ваши возвраты</h1>
+      <p class="sub" style="margin-bottom:16px">Байт нашёл основания в письмах за 3 года. Платите только из фактически возвращённого.</p>
+
+      <div class="seg">
+        <button class="on" data-seg="tax" onclick="seg(this,'tax')">Налоги</button>
+        <button data-seg="subs" onclick="seg(this,'subs')">Подписки</button>
+        <button data-seg="claims" onclick="seg(this,'claims')">Претензии</button>
+        <button data-seg="self" onclick="seg(this,'self')">Самозанятым</button>
+      </div>
+
+      <!-- TAX (Ф1 внутри: за себя и за родных) -->
+      <div data-pane="tax">
+        <div class="section-h">Готово к оформлению</div>
+        <div class="ret-item" onclick="go('offer')">
+          <div class="ri" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 10l7-7 7 7" stroke="#1e8f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="rm"><b>Вычет за лечение</b><span>клиника «Мед-Плюс» · за себя</span></div>
+          <div class="amt">до 11 570 ₽</div><span class="chev">›</span>
+        </div>
+        <div class="ret-item" onclick="go('offer')">
+          <div class="ri" style="background:var(--green-bg)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z" stroke="#1e8f5e" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+          <div class="rm"><b>Лечение мамы</b><span>оформляете вы как плательщик · за родных</span></div>
+          <div class="amt">до 6 500 ₽</div><span class="chev">›</span>
+        </div>
+        <div class="section-h" style="margin-top:14px">Проверьте свою сумму</div>
+        <div class="ret-item" onclick="go('calc')">
+          <div class="ri" style="background:var(--sky-bg)"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="#0891a3" stroke-width="1.8"/><path d="M9 8h6M9 12h6M9 16h3" stroke="#0891a3" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="rm"><b>Калькулятор</b><span>5 вопросов — узнать, что вам должны</span></div>
+          <span class="chev">›</span>
+        </div>
+      </div>
+
+      <!-- SUBS (Ф3) -->
+      <div data-pane="subs" style="display:none">
+        <div class="section-h">Подписки в ваших письмах</div>
+        <div class="sub-row">
+          <div class="si" style="background:#111;color:#fff">N</div>
+          <div class="sm"><b>Zombie Cinema</b><span>599 ₽/мес · не заходили 4 месяца</span></div>
+          <button class="mini-btn red" onclick="openModal('cancel')">Отменить</button>
+        </div>
+        <div class="sub-row">
+          <div class="si" style="background:#1db954;color:#fff">M</div>
+          <div class="sm"><b>MusicPro</b><span>269 ₽/мес · активна</span></div>
+          <button class="mini-btn" onclick="openModal('cancel')">Отменить</button>
+        </div>
+        <div class="section-h" style="margin-top:14px">Ошибочные списания</div>
+        <div class="sub-row">
+          <div class="si" style="background:var(--amber-bg);color:var(--amber)">!</div>
+          <div class="sm"><b>Двойное списание — CloudX</b><span>990 ₽ · 12 апр</span></div>
+          <button class="mini-btn blue" onclick="openModal('refund')">Вернуть</button>
+        </div>
+        <p class="disc">Байт нашёл по чекам 54-ФЗ в почте · нейтрально к банку</p>
+      </div>
+
+      <!-- CLAIMS (Ф3) -->
+      <div data-pane="claims" style="display:none">
+        <div class="section-h">Претензии и компенсации</div>
+        <div class="sub-row">
+          <div class="si" style="background:var(--accent-t)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 13l8-2 4-7 2 1-2 6 6-1 1 2-6 2-2 6-2-1 0-6-8 2z" stroke="#0077FF" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="sm"><b>Задержка рейса SU-1732</b><span>3 ч 40 мин · по брони в письме</span></div>
+          <button class="mini-btn blue" onclick="openModal('claim')">Требовать</button>
+        </div>
+        <div class="sub-row">
+          <div class="si" style="background:#efe7fb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8l8-4 8 4-8 4-8-4z" stroke="#6d28d9" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 8v8l8 4 8-4V8" stroke="#6d28d9" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="sm"><b>Брак — заказ #4471</b><span>чек 54-ФЗ · доказательство есть</span></div>
+          <button class="mini-btn blue" onclick="openModal('claim')">Требовать</button>
+        </div>
+        <p class="disc">Электронный чек 54-ФЗ — доказательство претензии</p>
+      </div>
+
+      <!-- SELF-EMPLOYED (Ф2) -->
+      <div data-pane="self" style="display:none">
+        <div class="ret-item" onclick="go('selfemp')">
+          <div class="ri" style="background:var(--lime-bg)"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="#4f7d17" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <div class="rm"><b>Помощник самозанятого</b><span>счёт → акт → чек в «Мой налог»</span></div>
+          <span class="chev">›</span>
+        </div>
+        <p class="disc" style="text-align:left">Подписка · запуск Y3. Банк видит платёж, почта — договорённость.</p>
+      </div>
+
+      <p class="disc" style="margin-top:14px">Суммы предварительные · оценочно</p>
+    </div></div>
+
+    <div class="body" data-view="calc"><div class="pad">
+      <div class="section-h">Калькулятор недополученных денег</div>
+      <h1 class="h1">Узнайте свою сумму</h1>
+      <div class="prog" style="margin-top:14px"><i style="width:80%"></i></div>
+      <p class="tiny" style="text-align:right">Вопрос 4 из 5</p>
+      <div class="card">
+        <p style="font-size:16px;font-weight:700;margin:0 0 14px">Были ли расходы на лечение в прошлом году?</p>
+        <div class="opt sel" onclick="pick(this)"><span>Да, платил(а) за себя или родных</span><span class="rc"></span></div>
+        <div class="opt" onclick="pick(this)"><span>Нет</span><span class="rc"></span></div>
+      </div>
+      <div class="card">
+        <p class="tiny" style="font-weight:700;color:var(--mute2);margin:0 0 4px">Предварительная оценка</p>
+        <div style="font-size:30px;font-weight:800;color:var(--green);margin-bottom:6px">~22 000 ₽</div>
+        <p class="sub">Вам, вероятно, должны эту сумму. Это оценка-ориентир, не обещание — точную сумму Байт посчитает по документам.</p>
+      </div>
+      <button class="btn pri" onclick="go('offer')">Хочу вернуть</button>
+      <p class="disc">Оценочно · ни к чему не обязывает</p>
+    </div></div>
+
+    <div class="body" data-view="offer">
+      <div class="inbox">
+        <div class="ic">К</div>
+        <div class="m"><b>Клиника «Мед-Плюс»</b><div>Чек об оплате приёма — 96 400 ₽</div></div>
+        <div class="t">вчера</div>
+      </div>
+      <div class="pad">
+        <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Байт нашёл основание</b></div>
+        <div class="card">
+          <h2 class="h2">Похоже, вам должны вернуть до 11 570 ₽</h2>
+          <p class="sub" style="margin-bottom:8px">В этом письме — чек об оплате лечения. По нему положен социальный налоговый вычет за прошлый год.</p>
+          <span class="vbadge"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#4f7d17" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Упрощённый вычет · клиника подключена к ФНС</span>
+          <div class="sumbox"><div class="lbl">Возврат</div><div class="big">до 11 570 ₽</div></div>
+          <button class="btn pri" onclick="go('accept')">Вернуть деньги</button>
+          <button class="btn ghost sm" onclick="openModal('how')">Как это работает</button>
+        </div>
+        <p class="disc">Сумма предварительная · оценочно</p>
+      </div>
+    </div>
+
+    <div class="body" data-view="accept"><div class="pad">
+      <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Условия оформления</b></div>
+      <div class="card">
+        <h2 class="h2">Подтвердите условия</h2>
+        <div class="cc pay" style="margin:14px 0 0">
+          <span class="tag">Комиссия success fee</span>
+          <div class="big">Возврат до 11 570 ₽. Комиссия 1 388 ₽ (12%).</div>
+          <div class="lil">Спишется только когда деньги придут вам. Не вернут — не заплатите ничего.</div>
+        </div>
+        <div class="hold">
+          <b>Что такое холд</b>
+          <span>Сейчас заморозим 1 388 ₽ на вашей карте — как в отеле или каршеринге. Списание только после зачисления возврата от ФНС.</span>
+        </div>
+        <button class="btn pri" onclick="go('cert')">Согласен, запустить оформление</button>
+        <button class="btn ghost sm" onclick="go('offer')">Назад</button>
+      </div>
+      <p class="disc">Возврат придёт напрямую вам · холд снимается при отказе ФНС</p>
+    </div></div>
+
+    <div class="body" data-view="cert"><div class="pad">
+      <div class="card">
+        <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Байт · агент Почты</b></div>
+        <h2 class="h2">Запросил справку у клиники</h2>
+        <p class="sub" style="margin-bottom:14px">С 2024 года для вычета нужна справка организации, чека недостаточно. Письмо отправлено с вашего ящика — ответ придёт сюда же.</p>
+        <span class="pill amber"><span class="d"></span>Ждём ответа клиники</span>
+      </div>
+      <div class="section-h">Ход оформления</div>
+      <div class="tl">
+        <div class="step done"><span class="dot done"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="txt"><b>Чек найден</b><span>клиника «Мед-Плюс»</span></div></div>
+        <div class="step"><span class="dot active"><i></i></span><div class="txt"><b>Справка запрошена</b><span>письмом, сегодня 9:41</span></div></div>
+        <div class="step"><span class="dot"></span><div class="txt wait"><b>Справка получена</b><span>ответным письмом</span></div></div>
+        <div class="step"><span class="dot"></span><div class="txt wait"><b>Декларация 3-НДФЛ</b><span>соберём автоматически</span></div></div>
+      </div>
+      <div class="card" style="background:var(--accent-t);border:none;text-align:center;margin-top:16px"><p class="sub" style="color:var(--accent-d)">Если клиника задержится — Байт напомнит сам</p></div>
+      <button class="btn ghost" onclick="go('sign')">▸ Демо: справка пришла</button>
+    </div></div>
+
+    <div class="body" data-view="sign"><div class="pad">
+      <div class="card">
+        <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Байт · агент Почты</b></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="width:40px;height:40px;border-radius:50%;background:var(--green-bg);display:flex;align-items:center;justify-content:center;flex:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#1e8f5e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div style="min-width:0"><h2 class="h2" style="margin:0">Декларация 3-НДФЛ готова</h2></div>
+        </div>
+        <p class="sub" style="margin-bottom:14px">Мы всё заполнили и приложили документы. Осталось подписать в вашем кабинете ФНС — подпись ставите вы сами.</p>
+        <button class="btn pri" onclick="go('tracker')">Перейти и подписать</button>
+      </div>
+      <div class="section-h">Что уже в декларации</div>
+      <div class="line-item"><span class="k">Лечение — «Мед-Плюс»</span><b>96 400 ₽</b></div>
+      <div class="line-item"><span class="k">Фитнес — прошлый год</span><b>31 000 ₽</b></div>
+      <div class="line-item"><span class="k">ДМС</span><b>24 500 ₽</b></div>
+      <div class="line-item"><span class="k">ИИС — данные от брокера</span><b>авто</b></div>
+      <div class="line-item" style="background:var(--green-bg);border:none"><span class="k" style="font-weight:700">Итого возврат</span><b style="font-size:16px">до 11 570 ₽</b></div>
+      <p class="disc">НЭП сгенерируется в кабинете ФНС бесплатно за пару минут</p>
+    </div></div>
+
+    <div class="body" data-view="tracker"><div class="pad">
+      <h1 class="h1">Ваш возврат в пути</h1>
+      <p class="sub" style="margin-bottom:18px">Байт ведёт до зачисления денег на ваш счёт.</p>
+      <div class="tl">
+        <div class="step done"><span class="dot done"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="txt"><b>Справка получена</b><span>28 апр</span></div></div>
+        <div class="step done"><span class="dot done"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="txt"><b>Декларация подписана</b><span>28 апр</span></div></div>
+        <div class="step"><span class="dot active"><i></i></span><div class="txt"><b>Камеральная проверка</b><span>идёт в ФНС · до 3 мес, ускорить нельзя — мы следим и сообщим</span><div style="margin-top:8px"><span class="pill blue"><span class="d"></span>Уведомление ФНС придёт письмом</span></div></div></div>
+        <div class="step"><span class="dot"></span><div class="txt wait"><b>Решение</b><span>ожидается</span></div></div>
+        <div class="step"><span class="dot"></span><div class="txt wait"><b>Деньги зачислены</b><span>до 11 570 ₽</span></div></div>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <p class="tiny" style="font-weight:700;color:var(--mute2);margin:0 0 4px">Комиссия сейчас</p>
+        <p class="sub">Захолдирована. Спишется, только когда деньги придут вам.</p>
+      </div>
+      <div class="section-h">Демо: посмотреть исход</div>
+      <div class="btnrow">
+        <button class="btn lime sm" onclick="openModal('ok')">Деньги пришли</button>
+        <button class="btn ghost sm" onclick="openModal('no')">Отказ ФНС</button>
+      </div>
+    </div></div>
+
+    <div class="body" data-view="cloud"><div class="pad">
+      <h1 class="h1">Досье в Облаке</h1>
+      <p class="sub" style="margin-bottom:16px">Доказательная база: документы хранятся 3 года. Байт даёт им цель — «документ → основание → срок».</p>
+      <div class="line-item"><span class="k">Справка — «Мед-Плюс»</span><b style="color:var(--accent-d)">получена</b></div>
+      <div class="line-item"><span class="k">Чек — фитнес-клуб</span><b style="color:var(--accent-d)">получен</b></div>
+      <div class="line-item"><span class="k">Договор ДМС</span><b style="color:var(--accent-d)">получен</b></div>
+      <div class="line-item"><span class="k">Декларация 3-НДФЛ</span><b style="color:var(--accent-d)">готова</b></div>
+    </div></div>
+
+    <div class="body" data-view="cal"><div class="pad">
+      <h1 class="h1">Сроки возвратов</h1>
+      <p class="sub" style="margin-bottom:16px">Деньги сгорают по сроку. Байт напомнит только когда до реального дедлайна осталось мало.</p>
+      <div class="card" style="border-left:5px solid var(--pink);border-radius:0 12px 12px 0">
+        <p style="font-size:17px;font-weight:800;margin:0 0 4px">19 500 ₽ сгорают через 2 месяца</p>
+        <p class="sub">Право на вычет за 2022 год исчезает после 31.12. Оформить сейчас?</p>
+      </div>
+      <div class="line-item"><span class="k">Вычет 2023 — до 31.12.2026</span><span class="tiny">есть время</span></div>
+      <div class="line-item"><span class="k">Вычет 2024 — до 31.12.2027</span><span class="tiny">есть время</span></div>
+    </div></div>
+
+    <div class="body" data-view="mail">
+      <div class="inbox" onclick="go('offer')">
+        <div class="ic">К</div>
+        <div class="m"><b>Клиника «Мед-Плюс»</b><div>Байт: возврат до 11 570 ₽</div></div>
+        <div class="t">вчера</div>
+      </div>
+      <div class="inbox">
+        <div class="ic" style="background:#e2fbfd;color:#0891a3">Ф</div>
+        <div class="m"><b>Фитнес-клуб City</b><div>Справка для налоговой во вложении</div></div>
+        <div class="t">2 дня</div>
+      </div>
+      <div class="inbox">
+        <div class="ic" style="background:#eefbdf;color:#4f7d17">Б</div>
+        <div class="m"><b>Брокер</b><div>Отчёт по ИИС за год</div></div>
+        <div class="t">3 дня</div>
+      </div>
+      <div class="empty">Обычные письма — а Байт живёт в разделе «Возвраты»</div>
+    </div>
+
+    <div class="body" data-view="profile"><div class="pad">
+      <div class="prof-head">
+        <div class="pa">М</div>
+        <div><b>Максим</b><span>maxim@mail.ru</span></div>
+      </div>
+      <div class="section-h" style="margin-top:18px">Что Байт может читать в почте</div>
+      <div class="set-group">
+        <div class="set-row"><div class="st"><b>Чеки и квитанции</b><span>основания для возврата</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Справки организаций</b><span>для вычетов за лечение, обучение, фитнес</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Билеты и брони</b><span>компенсации за задержку рейса</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Договоры и счета</b><span>для самозанятых</span></div><div class="sw" onclick="tog(this)"></div></div>
+      </div>
+      <p class="tiny" style="margin:-6px 2px 16px">Байт читает только выбранные типы писем. Остальное не анализируется.</p>
+      <div class="section-h">Что Байт может делать</div>
+      <div class="set-group">
+        <div class="set-row"><div class="st"><b>Находить и считать</b><span>искать основания, оценивать сумму</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Запрашивать документы</b><span>писать в организации от вашего имени</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Заполнять декларацию</b><span>готовить 3-НДФЛ (подпись всегда за вами)</span></div><div class="sw on" onclick="tog(this)"></div></div>
+        <div class="set-row"><div class="st"><b>Напоминать о сроках</b><span>пуш, когда деньги вот-вот сгорят</span></div><div class="sw on" onclick="tog(this)"></div></div>
+      </div>
+      <div class="section-h">Оплата и счёт зачисления</div>
+      <div class="set-group">
+        <div class="set-row"><div class="st"><b>Счёт для возврата</b><span>VK Pay · можно выбрать любой счёт</span></div><span class="chev">›</span></div>
+        <div class="set-row"><div class="st"><b>Карта для холда комиссии</b><span>•••• 4417</span></div><span class="chev">›</span></div>
+      </div>
+      <div class="set-group">
+        <button class="danger-link" onclick="openModal('optout')">Отказаться от услуг Байта</button>
+      </div>
+      <p class="tiny" style="text-align:center">Данные хранятся в вашем Облаке. Отключение агента останавливает анализ писем.</p>
+    </div></div>
+
+    <!-- SELF-EMPLOYED (Ф2) -->
+    <div class="body" data-view="selfemp"><div class="pad">
+      <div class="byte"><span class="av"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Байт для самозанятых</b></div>
+      <h1 class="h1">Помощник самозанятого</h1>
+      <p class="sub" style="margin-bottom:16px">Ваши акты, счета и переписка живут в почте. Байт доводит их до «Мой налог» и следит за налогом. Не полное сопровождение ИП — только то, где у почты есть преимущество.</p>
+
+      <div class="section-h">Из переписки — в документы</div>
+      <div class="tl">
+        <div class="step done"><span class="dot done"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="txt"><b>Счёт из переписки</b><span>клиент «Ромашка» · 40 000 ₽</span></div></div>
+        <div class="step done"><span class="dot done"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12l4 4 8-9" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div class="txt"><b>Акт сформирован</b><span>подписан, в Досье Облака</span></div></div>
+        <div class="step"><span class="dot active"><i></i></span><div class="txt"><b>Чек в «Мой налог»</b><span>пробить в один тап</span><div style="margin-top:8px"><span class="pill blue"><span class="d"></span>Готово к отправке</span></div></div></div>
+        <div class="step"><span class="dot"></span><div class="txt wait"><b>Напоминание о налоге</b><span>до 28-го числа · применим положенные льготы</span></div></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <p class="tiny" style="font-weight:700;color:var(--mute2);margin:0 0 4px">Налог к уплате в этом месяце</p>
+        <div style="font-size:22px;font-weight:800">2 400 ₽ <span style="font-size:13px;color:var(--mute);font-weight:500">после вычета</span></div>
+        <p class="sub" style="margin-top:6px">Байт применил налоговый вычет самозанятого — не переплачиваете по незнанию.</p>
+      </div>
+      <button class="btn pri" onclick="openModal('mytax')">Пробить чек в «Мой налог»</button>
+      <p class="disc">Подписка · банк видит платёж, почта — договорённость</p>
+    </div></div>
+
+  </div>
+
+  <div class="tabbar" id="tabbar">
+    <button class="tab" data-tab="mail" onclick="tab('mail')">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8"/></svg><span class="lb">Почта</span>
+    </button>
+    <button class="tab" data-tab="cloud" onclick="tab('cloud')">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M7 18a4 4 0 010-8 5 5 0 019.6-1.5A3.5 3.5 0 0117 18H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="lb">Облако</span>
+    </button>
+    <button class="tab" data-tab="cal" onclick="tab('cal')">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lb">Календарь</span>
+    </button>
+    <button class="tab on" data-tab="returns" onclick="tab('returns')">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 10l7-7 7 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="lb">Возвраты</span><span class="badge">1</span>
+    </button>
+  </div>
+
+  <div class="onb active" id="onb">
+    <div class="mark"><div class="in"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-10" stroke="#0077FF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+    <h1>Ваш ящик знает,<br>что вам должны деньги.</h1>
+    <p>И сейчас про это молчит. Байт находит в письмах основания для возврата, сам добывает документы и доводит до зачисления.</p>
+    <div class="hook"><b>19 500 ₽ за прошлый год</b><span>могут сгореть — проверим, пока не поздно</span></div>
+    <button class="btn lime" onclick="closeOnb()" style="margin-top:22px">Проверить, что мне должны</button>
+    <p class="foot">Платите только из фактически возвращённого</p>
+  </div>
+
+  <div class="modal-wrap" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modal-inner"></div>
+  </div>
+
+</div>
+
+<script>
+var titles = {
+  returns:{sub:'Возвраты'}, calc:{back:'returns',title:'Калькулятор'},
+  offer:{back:'returns',title:'Входящие'}, accept:{back:'offer',title:'Оформление'},
+  cert:{back:'accept',title:'Оформление возврата'}, sign:{back:'cert',title:'Оформление возврата'},
+  tracker:{back:'sign',title:'Статус возврата'},
+  cloud:{sub:'Облако'}, cal:{sub:'Календарь'}, mail:{sub:'Входящие'}, profile:{back:'returns',title:'Профиль'},
+  selfemp:{back:'returns',title:'Самозанятым'}
+};
+var tabOf = {mail:'mail',cloud:'cloud',cal:'cal',returns:'returns',calc:'returns',offer:'returns',accept:'returns',cert:'returns',sign:'returns',tracker:'returns',profile:'returns',selfemp:'returns'};
+
+function render(view){
+  document.querySelectorAll('.body').forEach(function(b){b.classList.toggle('active', b.dataset.view===view);});
+  var el=document.querySelector('.body.active'); if(el) el.scrollTop=0;
+  var mb=document.getElementById('mailbar'); var cfg=titles[view]||{};
+  var left = cfg.back
+    ? '<button class="backbtn" onclick="go(\''+cfg.back+'\')">‹ Назад</button>'
+    : '<div class="logo"><span class="at">@</span>Почта</div>';
+  var center = cfg.title ? '<div class="center">'+cfg.title+'</div>' : (cfg.sub?'<div class="center">'+cfg.sub+'</div>':'<div class="center"></div>');
+  mb.innerHTML = '<div class="left">'+left+'</div>'+center+'<div class="right"><div class="ava" onclick="go(\'profile\')">М</div></div>';
+  var active=tabOf[view]||'returns';
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on', t.dataset.tab===active);});
+}
+function go(v){ render(v); }
+function tab(name){ render(name); }
+function pick(el){ el.parentNode.querySelectorAll('.opt').forEach(function(o){o.classList.remove('sel');}); el.classList.add('sel'); }
+function tog(el){ el.classList.toggle('on'); }
+function seg(btn,name){
+  document.querySelectorAll('.seg button').forEach(function(b){b.classList.toggle('on', b===btn);});
+  document.querySelectorAll('[data-pane]').forEach(function(p){p.style.display = (p.dataset.pane===name?'block':'none');});
+}
+function closeOnb(){ document.getElementById('onb').classList.remove('active'); }
+
+var modals = {
+  how:{cls:'pay',tag:'Как это работает',big:'Байт находит основание, добывает документы, готовит декларацию.',lil:'Вы подписываете в кабинете ФНС. Деньги приходят вам напрямую, комиссия — только из возвращённого.'},
+  confirm:{cls:'pay',tag:'Подтверждение',big:'Возврат до 11 570 ₽. Комиссия 1 388 ₽ (12%).',lil:'Спишется только когда деньги придут вам. Не вернут — не заплатите ничего.'},
+  ok:{cls:'ok',tag:'Деньги пришли',big:'Деньги пришли: +11 570 ₽.',lil:'Комиссия 1 388 ₽ списана. Итог: +10 182 ₽.'},
+  no:{cls:'no',tag:'Отказ ФНС',big:'Налоговая отказала.',lil:'Холд снят — вы ничего не платите. Разбираемся, можно ли подать заново.'},
+  optout:{cls:'no',tag:'Отключение агента',big:'Отказаться от услуг Байта?',lil:'Байт перестанет анализировать письма и оформлять возвраты. Уже начатые оформления можно завершить. Комиссия берётся только за фактически возвращённое.'},
+  cancel:{cls:'no',tag:'Отмена подписки',big:'Отменить подписку и вернуть последнее списание?',lil:'Байт отправит запрос на отмену и претензию на возврат последнего платежа. Комиссия — только с фактически возвращённого.'},
+  refund:{cls:'pay',tag:'Возврат списания',big:'Оспорить ошибочное списание 990 ₽?',lil:'Байт подготовит претензию по чеку 54-ФЗ. Деньги вернутся вам, комиссия — только из возвращённого.'},
+  claim:{cls:'pay',tag:'Претензия',big:'Требовать компенсацию?',lil:'Байт составит претензию и приложит доказательство из письма. Возврат приходит вам напрямую.'},
+  mytax:{cls:'ok',tag:'«Мой налог»',big:'Чек пробит в «Мой налог».',lil:'Акт в Досье Облака, налог пересчитан с учётом вычета. Напомним об оплате до 28-го.'}
+};
+function openModal(k){
+  var m=modals[k];
+  document.getElementById('modal-inner').innerHTML =
+    '<div class="grab"></div>'
+    +'<div class="cc '+m.cls+'" style="margin-bottom:16px"><span class="tag">'+m.tag+'</span><div class="big">'+m.big+'</div><div class="lil">'+m.lil+'</div></div>'
+    +'<button class="btn pri" onclick="closeModal()">Понятно</button>';
+  document.getElementById('modal').classList.add('active');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('active'); }
+
+render('returns');
+</script>
+</body>
+</html>
